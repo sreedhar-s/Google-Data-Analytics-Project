@@ -1,0 +1,311 @@
+---
+title: "Google-DA Project"
+author: "Gandikota Sreedhar"
+date: "January 2023"
+output:
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#=====================
+# STEP 1: COLLECT DATA
+#=====================
+
+## Installing packages
+```{r}
+#install.packages("tidyverse")
+#install.packages("markdown")
+#install.packages("sqldf")
+#install.packages("maps")
+#install.packages("rgdal")
+#install.packages("ggrepel")
+library("tidyverse")
+library("lubridate")
+library("markdown")
+library("sqldf")
+library("maps")
+library("rgdal")
+library("ggrepel")
+```
+
+## Setting working directory, and creating dataframes for each .csv file.
+```{r}
+JAN2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202101-divvy-tripdata.csv")
+FEB2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202102-divvy-tripdata.csv")
+MAR2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202103-divvy-tripdata.csv")
+APR2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202104-divvy-tripdata.csv")
+JUNE2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202105-divvy-tripdata.csv")
+JULY2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202106-divvy-tripdata.csv")
+AUG2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202107-divvy-tripdata.csv")
+SEP2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202108-divvy-tripdata.csv")
+OCT2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202109-divvy-tripdata.csv")
+NOV2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202110-divvy-tripdata.csv")
+DEC2021 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202111-divvy-tripdata.csv")
+JAN2022 <- read.csv("C:/Users/Sreedhar/Downloads/Google Data Analytics Datasets/202112-divvy-tripdata.csv")
+```
+
+##  Glimpsing a dataframe, to see if data types from excel were preserved (they weren't)
+
+```{r}
+glimpse(JAN2021)
+```
+
+
+## Merging all the dataframes together
+
+```{r}
+tot_rows <- nrow(JAN2021)+nrow(FEB2021)+nrow(MAR2021)+nrow(APR2021)+nrow(MAY2021)+nrow(JUNE2021)+nrow(JULY2021)+nrow(AUG2021)+nrow(SEP2021)+nrow(OCT2021)+nrow(NOV2021)+nrow(DEC2021)+nrow(JAN2022)
+
+```
+
+#====================================================
+# STEP 2: WRANGLE DATA AND COMBINE INTO A SINGLE FILE
+#====================================================
+
+### CREATING THE BIND
+```{r}
+df <- do.call("rbind", list(JAN2021,FEB2021,MAR2021,APR2021,MAY2021,JUNE2021,JULY2021,AUG2021,SEP2021,OCT2021,NOV2021,DEC2021,JAN2022))
+```
+
+### Checking if the rows matches with merged dataframe or not
+```{r}
+if (tot_rows == nrow(df)){
+  print("Binding was sucessfull, data verified.")
+} else{
+  print("Error, please verify your data.")
+}
+```
+
+
+
+## UseING sqldf to collect information and store it in a dataframe
+### creating two dataframes with top 5 start & end stations 
+
+####Top 5 starting stations for members
+```{r}
+mem_start_geo <- sqldf("SELECT member_casual, start_station_name AS Start, 
+                start_lat AS Starting_Latitude,
+                start_lng As Starting_Longitude, count(start_station_name) AS Num_Trips
+                FROM df
+                WHERE start_station_name IS NOT ''
+                AND member_casual = 'member'
+                GROUP BY start_station_name
+                ORDER BY count(start_station_name) DESC
+                LIMIT 5", method = "auto")
+mem_start_geo                
+```
+
+####Top 5 starting stations for casuals
+```{r}
+cas_start_geo <- sqldf("SELECT member_casual, start_station_name AS Start, 
+                start_lat AS Starting_Latitude, start_lng As Starting_Longitude,
+                count(start_station_name) AS Num_Trips
+                FROM df
+                WHERE start_station_name IS NOT ''
+                AND member_casual = 'casual'
+                GROUP BY start_station_name
+                ORDER BY count(start_station_name) DESC
+                LIMIT 5", method = "auto")
+cas_start_geo
+```
+
+###Binding the two tables into a dataframe, and viewing it
+```{r}
+start_geo <- rbind(mem_start_geo, cas_start_geo)
+start_geo
+```
+#======================================================
+# STEP 3: CLEAN UP AND ADD DATA TO PREPARE FOR ANALYSIS
+#======================================================
+
+### Changing the datatype of the coordinates to real numbers to use for plots
+```{r}
+start_geo$Starting_Latitude = as.numeric(gsub(",",".",start_geo$Starting_Latitude,fixed=TRUE))
+start_geo$Starting_Longitude = as.numeric(gsub(",",".",start_geo$Starting_Longitude,fixed=TRUE))
+```
+
+####Top 5 ending stations for members
+```{r}
+mem_end_geo <- sqldf("SELECT member_casual, end_station_name AS End, 
+                end_lat AS Ending_Latitude,
+                end_lng As Ending_Longitude, count(end_station_name) AS Num_Trips
+                FROM df
+                WHERE end_station_name IS NOT ''
+                AND member_casual = 'member'
+                GROUP BY end_station_name
+                ORDER BY count(end_station_name) DESC
+                LIMIT 5", method = "auto")
+mem_end_geo
+```
+
+####Top 5 ending stations for casuals
+```{r}
+cas_end_geo <- sqldf("SELECT member_casual, end_station_name AS End, 
+                end_lat AS Ending_Latitude, end_lng As Ending_Longitude,
+                count(end_station_name) AS Num_Trips
+                FROM df
+                WHERE end_station_name IS NOT ''
+                AND member_casual = 'casual'
+                GROUP BY end_station_name
+                ORDER BY count(end_station_name) DESC
+                LIMIT 5", method = "auto")
+cas_end_geo
+```
+
+###Binding the two tables into a dataframe, and viewing it
+```{r}
+end_geo <- rbind(mem_end_geo, cas_end_geo)
+end_geo
+```
+
+### Changing the datatype of the coordinates to real numbers to use for plots
+```{r}
+end_geo$Ending_Latitude = as.numeric(gsub(",",".",end_geo$Ending_Latitude, fixed=TRUE))
+end_geo$Ending_Longitude = as.numeric(gsub(",",".",end_geo$Ending_Longitude, fixed=TRUE))
+```
+#=====================================
+# STEP 4: CONDUCT DESCRIPTIVE ANALYSIS
+#=====================================
+
+## Creating a geolocation map of the top 5 start and end stations
+###Getting a shapefile of Chicago, and fortifying it into a dataframe 
+```{r}
+chicago_map <- readOGR(dsn="C:/Users/Sreedhar/Downloads/Boundaries - Community Areas (current)", layer="geo_export_8d4cbb2f-b496-49a4-9ab9-f99b1d9d1c45")
+chi_df = fortify(chicago_map)
+```
+
+## Plotting the start station geolocations.
+```{r}
+ssgmap <-ggplot() +
+    geom_polygon(data = chi_df, aes(x = long, y=lat , group = group), colour = 'grey', 
+    fill = 'chartreuse4', size = .7) +
+    geom_point(data = start_geo,
+             aes(x = Starting_Longitude, y = Starting_Latitude, size = Num_Trips, color = member_casual), 
+             alpha = 1) +
+    geom_label_repel(data = start_geo,
+                   aes(x = Starting_Longitude, y = Starting_Latitude, label = Start),
+                   box.padding   = 0.25, 
+                   point.padding = 0.65,
+                   segment.color = 'gray50') +
+  scale_colour_manual(values=c(member = 'orange',  casual= 'blue'))+
+  facet_wrap(~member_casual) +
+  labs(title = "Geolocation Of The Top 5 Starting Stations.", size = 'Number of Trips',
+       color = 'Rider Type') +
+  coord_cartesian(xlim = c(-87.7, -87.55), ylim = c(41.85, 41.95))+ 
+  theme(panel.background = element_rect(fill = "lightblue")) +
+        theme(panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
+ssgmap
+```
+
+## Plotting the end station geolocations.
+```{r}
+esgmap <- ggplot() +
+    geom_polygon(data = chi_df, aes(x = long, y=lat , group = group), colour = 'grey', 
+    fill = 'chartreuse4', size = .7) +
+  geom_point(data = end_geo,
+             aes(x = Ending_Longitude, y = Ending_Latitude, size = Num_Trips, color = member_casual),
+             alpha = 1) +
+  geom_label_repel(data = end_geo,
+                   aes(x = Ending_Longitude, y = Ending_Latitude, label = End),
+                   box.padding   = 0.25, 
+                   point.padding = 0.65,
+                   segment.color = 'gray50') +
+  scale_colour_manual(values=c(member = 'orange',  casual= 'blue')) +
+  facet_wrap(~member_casual) +
+  labs(title = "Geolocation Of The Top 5 Ending Stations.", size = 'Number of Trips',
+       color = 'Rider Type') +
+  coord_cartesian(xlim = c(-87.7, -87.55), ylim = c(41.85, 41.95)) + 
+    theme(panel.background = element_rect(fill = "lightblue")) +
+    theme(panel.border = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank())
+esgmap
+```
+
+## SQL Querie to find the mode
+```{r}
+mode_t <- sqldf("SELECT day_of_week, member_casual, COUNT(day_of_week) AS Total
+                 FROM df
+                 GROUP BY member_casual, day_of_week
+                 ORDER BY day_of_week DESC", method = "auto")
+```
+
+## Giving the values back to normal
+```{r}
+mode_t$day_of_week[mode_t$day_of_week == "1"] <- "Sunday"
+mode_t$day_of_week[mode_t$day_of_week == "2"] <- "Monday"
+mode_t$day_of_week[mode_t$day_of_week == "3"] <- "Tuesday"
+mode_t$day_of_week[mode_t$day_of_week == "4"] <- "Wednesday"
+mode_t$day_of_week[mode_t$day_of_week == "5"] <- "Thursday"
+mode_t$day_of_week[mode_t$day_of_week == "6"] <- "Friday"
+mode_t$day_of_week[mode_t$day_of_week == "7"] <- "Saturday"
+```
+##Plotting the Modes
+
+### This function locks  x axis so that it does not get sorted
+```{r}
+mode_t$day_of_week <- factor(mode_t$day_of_week, levels = rev(unique(mode_t$day_of_week)), ordered=TRUE)
+```
+
+### This function finds the sum of casual and member riders, to be used to plot labels
+
+```{r}
+mode_t <- mode_t %>%
+  arrange(day_of_week, rev(member_casual)) %>%
+  group_by(day_of_week) %>%
+  mutate(GTotal = cumsum(Total) - 0.5 * Total)
+```
+
+### A stacked bar plot with the yearly modes for all riders
+```{r}
+Mode_plot <- ggplot(data = mode_t, aes(x = day_of_week, y = Total, fill = member_casual)) +
+             scale_fill_manual(values=c(member = 'orange',  casual= 'blue')) +
+  geom_col() +
+  geom_text(aes(y = GTotal, label = Total), vjust = 1.5, colour = "white") +
+  labs(title = "Yearly Total Rides Per Day of Week.", x = "Day of Week",
+       y = "Total Rides", fill = "Rider Type") +
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
+Mode_plot
+```
+
+## A query to return results related to rideble types used by members
+```{r}
+bike_df <- sqldf("SELECT rideable_type, member_casual, count(rideable_type) as number_of_uses
+                 FROM df
+                 GROUP BY member_casual, rideable_type
+                 ORDER BY count(rideable_type) DESC", method = "auto" )
+```
+
+### Changing the names of the rideable type to remove the underscore
+```{r}
+"Classic Bike"<-bike_df$rideable_type[bike_df$rideable_type == "classic_bike"]  
+"Docked Bike"<-bike_df$rideable_type[bike_df$rideable_type == "docked_bike"]  
+"Electric Bike"<-bike_df$rideable_type[bike_df$rideable_type == "electric_bike"] 
+```
+
+### A side by side bar plot 
+```{r}
+bike_plot <- ggplot(data = bike_df, aes(x = rideable_type, y = number_of_uses, fill = member_casual)) +
+  scale_fill_manual(values=c(member = 'orange',  casual= 'blue')) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = number_of_uses),  vjust = -0.3 ,colour = "black", 
+            position = position_dodge(.9)) +
+  labs(title = "Yearly Total Rides Per Rideable Type.", x = "Rideable Type",
+       y = "Total Rides", fill = "Rider Type") +
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
+bike_plot
+```
+
+#=================================================
+# STEP 5: EXPORT SUMMARY FILE FOR FURTHER ANALYSIS
+#=================================================
+
+
+```{r}
+write.csv(df,"C:\\Users\\TRICK\\OneDrive\\Desktop\\GOOGLE\\sort.csv",row.names=FALSE)
+```
+#END
